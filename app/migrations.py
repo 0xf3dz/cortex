@@ -73,6 +73,23 @@ MIGRATIONS: tuple[tuple[int, str], ...] = (
             ON notes (enrichment_state, created_at);
         """,
     ),
+    (
+        4,
+        """
+        ALTER TABLE inbound_events ADD COLUMN reply_reaction_emoji TEXT;
+
+        UPDATE inbound_events
+        SET reply_body = NULL,
+            reply_reaction_emoji = '👍'
+        WHERE reply_body = 'Saved.'
+          AND processing_state IN ('pending', 'processing')
+          AND EXISTS (
+              SELECT 1
+              FROM notes
+              WHERE notes.wamid = inbound_events.wamid
+          );
+        """,
+    ),
 )
 
 

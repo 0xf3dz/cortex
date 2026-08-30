@@ -5,7 +5,12 @@ from pathlib import Path
 import numpy as np
 
 from app.db import Database, InboundEvent
-from app.whatsapp_client import FakeWhatsAppClient, SentMessage, WhatsAppClientError
+from app.whatsapp_client import (
+    FakeWhatsAppClient,
+    SentMessage,
+    SentReaction,
+    WhatsAppClientError,
+)
 from app.worker import EventWorker
 
 
@@ -36,20 +41,14 @@ class CommitInspectingClient(FakeWhatsAppClient):
         super().__init__()
         self._database = database
 
-    async def send_text(
+    async def send_reaction(
         self,
         recipient_wa_id: str,
-        body: str,
-        *,
-        context_message_id: str | None = None,
+        message_id: str,
+        emoji: str,
     ) -> None:
-        if body == "Saved.":
-            assert self._database.count_notes() == 1
-        await super().send_text(
-            recipient_wa_id,
-            body,
-            context_message_id=context_message_id,
-        )
+        assert self._database.count_notes() == 1
+        await super().send_reaction(recipient_wa_id, message_id, emoji)
 
 
 class FailOnceClient(FakeWhatsAppClient):
@@ -57,21 +56,16 @@ class FailOnceClient(FakeWhatsAppClient):
         super().__init__()
         self.failed = False
 
-    async def send_text(
+    async def send_reaction(
         self,
         recipient_wa_id: str,
-        body: str,
-        *,
-        context_message_id: str | None = None,
+        message_id: str,
+        emoji: str,
     ) -> None:
         if not self.failed:
             self.failed = True
             raise WhatsAppClientError(500)
-        await super().send_text(
-            recipient_wa_id,
-            body,
-            context_message_id=context_message_id,
-        )
+        await super().send_reaction(recipient_wa_id, message_id, emoji)
 
 
 def make_database(path: Path) -> Database:
@@ -96,7 +90,6 @@ def make_worker(database: Database, client: FakeWhatsAppClient) -> EventWorker:
         database=database,
         whatsapp_client=client,
         embedding_encoder=FakeEmbeddingEncoder(),
-        user_timezone="Australia/Brisbane",
     )
 
 
@@ -104,7 +97,7 @@ def process_next(worker: EventWorker) -> bool:
     return asyncio.run(worker.process_next())
 
 
-def test_normal_text_commits_note_before_saved_reply(tmp_path: Path) -> None:
+def test_normal_text_commits_note_before_saved_reaction(tmp_path: Path) -> None:
     database = make_database(tmp_path / "agent.sqlite3")
     client = CommitInspectingClient(database)
     worker = make_worker(database, client)
@@ -120,7 +113,9 @@ def test_normal_text_commits_note_before_saved_reply(tmp_path: Path) -> None:
     assert note["embedding_dimensions"] == 4
     assert stored_event is not None
     assert stored_event["processing_state"] == "completed"
-    assert client.sent_messages == [SentMessage("61400000000", "Saved.")]
+    assert client.sent_reactions == [
+        SentReaction("61400000000", "wamid.NOTE", "👍")
+    ]
 
 
 def test_query_and_commands_create_no_notes(tmp_path: Path) -> None:
@@ -144,7 +139,7 @@ def test_query_and_commands_create_no_notes(tmp_path: Path) -> None:
     ]
 
 
-def test_search_reply_uses_source_context_and_exact_saved_date(tmp_path: Path) -> None:
+def test_search_reply_uses_source_context(tmp_path: Path) -> None:
     database = make_database(tmp_path / "agent.sqlite3")
     client = FakeWhatsAppClient()
     worker = make_worker(database, client)
@@ -160,12 +155,12 @@ def test_search_reply_uses_source_context_and_exact_saved_date(tmp_path: Path) -
 
     assert client.sent_messages[-1] == SentMessage(
         recipient_wa_id="61400000000",
-        body="Best match · saved 15 November 2023",
+        body="Best match.",
         context_message_id="wamid.SOURCE",
     )
 
 
-def test_webhook_retry_creates_one_note_and_reply(tmp_path: Path) -> None:
+def test_webhook_retry_creates_one_note_and_reaction(tmp_path: Path) -> None:
     database = make_database(tmp_path / "agent.sqlite3")
     client = FakeWhatsAppClient()
     worker = make_worker(database, client)
@@ -177,7 +172,9 @@ def test_webhook_retry_creates_one_note_and_reply(tmp_path: Path) -> None:
     assert not process_next(worker)
 
     assert database.count_notes() == 1
-    assert client.sent_messages == [SentMessage("61400000000", "Saved.")]
+    assert client.sent_reactions == [
+        SentReaction("61400000000", "wamid.DUPLICATE", "👍")
+    ]
 
 
 def test_delete_last_removes_latest_note_and_fts_row(tmp_path: Path) -> None:
@@ -199,7 +196,7 @@ def test_delete_last_removes_latest_note_and_fts_row(tmp_path: Path) -> None:
     assert client.sent_messages[-1].body == "Deleted."
 
 
-def test_failed_reply_retries_without_duplicate_note(tmp_path: Path) -> None:
+def test_failed_reaction_retries_without_duplicate_note(tmp_path: Path) -> None:
     database = make_database(tmp_path / "agent.sqlite3")
     client = FailOnceClient()
     worker = make_worker(database, client)
@@ -210,7 +207,8 @@ def test_failed_reply_retries_without_duplicate_note(tmp_path: Path) -> None:
     failed_event = database.get_inbound_event(event.wamid)
     assert failed_event is not None
     assert failed_event["processing_state"] == "pending"
-    assert failed_event["reply_body"] == "Saved."
+    assert failed_event["reply_body"] is None
+    assert failed_event["reply_reaction_emoji"] == "👍"
     assert database.count_notes() == 1
 
     with database.connect() as connection:
@@ -224,7 +222,9 @@ def test_failed_reply_retries_without_duplicate_note(tmp_path: Path) -> None:
     assert completed_event is not None
     assert completed_event["processing_state"] == "completed"
     assert database.count_notes() == 1
-    assert client.sent_messages == [SentMessage("61400000000", "Saved.")]
+    assert client.sent_reactions == [
+        SentReaction("61400000000", "wamid.RETRY", "👍")
+    ]
 
 
 def test_stale_processing_event_returns_to_pending(tmp_path: Path) -> None:

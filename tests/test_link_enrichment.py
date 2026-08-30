@@ -72,7 +72,6 @@ def make_worker(
         database=database,
         whatsapp_client=FakeWhatsAppClient(),
         embedding_encoder=FakeEmbeddingEncoder(),
-        user_timezone="Australia/Brisbane",
         link_enricher=link_enricher,
     )
     return database, worker

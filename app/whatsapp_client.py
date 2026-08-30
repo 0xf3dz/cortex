@@ -10,6 +10,12 @@ class SentMessage:
     body: str
     context_message_id: str | None = None
 
+@dataclass(frozen=True, slots=True)
+class SentReaction:
+    recipient_wa_id: str
+    message_id: str
+    emoji: str
+
 
 class WhatsAppClientError(RuntimeError):
     def __init__(self, status_code: int | None) -> None:
@@ -25,6 +31,13 @@ class WhatsAppClient(Protocol):
         body: str,
         *,
         context_message_id: str | None = None,
+    ) -> None: ...
+
+    async def send_reaction(
+        self,
+        recipient_wa_id: str,
+        message_id: str,
+        emoji: str,
     ) -> None: ...
 
 
@@ -63,7 +76,28 @@ class GraphWhatsAppClient:
         }
         if context_message_id is not None:
             payload["context"] = {"message_id": context_message_id}
+        await self._send(payload)
 
+    async def send_reaction(
+        self,
+        recipient_wa_id: str,
+        message_id: str,
+        emoji: str,
+    ) -> None:
+        await self._send(
+            {
+                "messaging_product": "whatsapp",
+                "recipient_type": "individual",
+                "to": recipient_wa_id,
+                "type": "reaction",
+                "reaction": {
+                    "message_id": message_id,
+                    "emoji": emoji,
+                },
+            }
+        )
+
+    async def _send(self, payload: dict[str, Any]) -> None:
         try:
             response = await self._http_client.post(
                 self._messages_url,
@@ -84,6 +118,7 @@ class GraphWhatsAppClient:
 class FakeWhatsAppClient:
     def __init__(self) -> None:
         self.sent_messages: list[SentMessage] = []
+        self.sent_reactions: list[SentReaction] = []
 
     async def send_text(
         self,
@@ -97,5 +132,19 @@ class FakeWhatsAppClient:
                 recipient_wa_id=recipient_wa_id,
                 body=body,
                 context_message_id=context_message_id,
+            )
+        )
+
+    async def send_reaction(
+        self,
+        recipient_wa_id: str,
+        message_id: str,
+        emoji: str,
+    ) -> None:
+        self.sent_reactions.append(
+            SentReaction(
+                recipient_wa_id=recipient_wa_id,
+                message_id=message_id,
+                emoji=emoji,
             )
         )

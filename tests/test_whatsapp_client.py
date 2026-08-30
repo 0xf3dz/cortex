@@ -44,6 +44,42 @@ def test_graph_client_sends_contextual_text_payload() -> None:
     }
 
 
+def test_graph_client_sends_reaction_payload() -> None:
+    requests: list[httpx.Request] = []
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        return httpx.Response(200, json={"messages": [{"id": "wamid.OUTBOUND"}]})
+
+    async def exercise() -> None:
+        async with httpx.AsyncClient(transport=httpx.MockTransport(handle)) as http_client:
+            client = GraphWhatsAppClient(
+                access_token="test-access-token",
+                phone_number_id="1228458710361487",
+                graph_api_version="v25.0",
+                http_client=http_client,
+            )
+            await client.send_reaction(
+                "61400000000",
+                "wamid.INBOUND",
+                "👍",
+            )
+
+    asyncio.run(exercise())
+
+    assert len(requests) == 1
+    assert json.loads(requests[0].content) == {
+        "messaging_product": "whatsapp",
+        "recipient_type": "individual",
+        "to": "61400000000",
+        "type": "reaction",
+        "reaction": {
+            "message_id": "wamid.INBOUND",
+            "emoji": "👍",
+        },
+    }
+
+
 def test_graph_client_error_excludes_response_and_credentials() -> None:
     def handle(_: httpx.Request) -> httpx.Response:
         return httpx.Response(

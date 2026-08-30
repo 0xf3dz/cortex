@@ -45,10 +45,10 @@ Input:
 Try sqlite-vec for small local retrieval projects
 ```
 
-Response:
+Reaction:
 
 ```text
-Saved.
+👍
 ```
 
 ### Search notes
@@ -63,13 +63,13 @@ Response behavior:
 
 1. Find the best source note.
 2. Send a contextual reply with the source note's WhatsApp message ID.
-3. Put the saved date in the new response body.
+3. Put `Best match.` in the new response body.
 4. Let WhatsApp display the original note in the quoted-message section.
 
 Example response body:
 
 ```text
-Best match · saved 14 August 2026
+Best match.
 ```
 
 ### Empty collection
@@ -114,7 +114,7 @@ The original inbound `wamid` must remain attached to its note. WhatsApp clients 
 
 Treat source navigation as an early proof requirement. Do not claim that navigation works until it passes on the user's mobile WhatsApp client and WhatsApp Web.
 
-If navigation fails, keep the quoted reply and include the exact saved date. Do not invent an unsupported message URL.
+If navigation fails, keep the quoted reply. Do not invent an unsupported message URL.
 
 Official contextual-reply reference:
 
@@ -315,7 +315,7 @@ For a supported note message:
 4. Build the first `searchable_text` value.
 5. Embed `passage: <searchable_text>` locally.
 6. insert the note and FTS5 row in one transaction;
-7. send `Saved.`;
+7. apply a thumbs-up reaction to the original message;
 8. enrich URLs asynchronously;
 9. update `searchable_text`, FTS5, and the embedding after successful enrichment.
 
@@ -561,7 +561,7 @@ Official guide:
 - [ ] Route `/help` and `/delete-last` to command handling.
 - [ ] Route other supported text to note handling.
 - [ ] Store notes and embeddings.
-- [ ] Send `Saved.` only after durable note storage succeeds.
+- [ ] Apply a thumbs-up reaction only after durable note storage succeeds.
 - [ ] Add durable worker retries.
 - [ ] Recover stale jobs after restart.
 
@@ -604,8 +604,7 @@ Create at least 20 meaningfully different notes. Write 10 queries that paraphras
 ### Work
 
 - [ ] Send the search response with `context.message_id` set to the source note's `wamid`.
-- [ ] Include the source note's saved date in the response body.
-- [ ] Preserve a timestamp fallback when navigation is unavailable.
+- [ ] Use `Best match.` as the response body.
 
 ### Human gate: client behavior
 
@@ -624,7 +623,7 @@ The user must perform these checks:
 - [ ] The response quotes the correct source note.
 - [ ] Mobile navigation behavior is recorded from a real check.
 - [ ] WhatsApp Web navigation behavior is recorded from a real check.
-- [ ] The fallback displays the exact saved date.
+- [ ] The response body is `Best match.`.
 - [ ] The service does not invent a permalink.
 
 ## Phase 6 — Link enrichment
@@ -705,11 +704,7 @@ Do not declare the prototype complete until this scenario passes:
    sqlite-vec could be useful for small local semantic-search projects
    ```
 
-2. Receive:
-
-   ```text
-   Saved.
-   ```
+2. Receive a thumbs-up reaction on the note.
 
 3. Send several unrelated notes.
 4. Restart the VPS.

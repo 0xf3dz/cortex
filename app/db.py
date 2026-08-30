@@ -20,6 +20,7 @@ class InboundEvent:
     attempt_count: int = 0
     reply_body: str | None = None
     reply_context_wamid: str | None = None
+    reply_reaction_emoji: str | None = None
     operation_applied_at: int | None = None
 
 
@@ -157,6 +158,7 @@ class Database:
                 attempt_count=row["attempt_count"] + 1,
                 reply_body=row["reply_body"],
                 reply_context_wamid=row["reply_context_wamid"],
+                reply_reaction_emoji=row["reply_reaction_emoji"],
                 operation_applied_at=row["operation_applied_at"],
             )
 
@@ -238,8 +240,9 @@ class Database:
             connection.execute(
                 """
                 UPDATE inbound_events
-                SET reply_body = 'Saved.',
+                SET reply_body = NULL,
                     reply_context_wamid = NULL,
+                    reply_reaction_emoji = '👍',
                     operation_applied_at = ?
                 WHERE wamid = ?
                 """,

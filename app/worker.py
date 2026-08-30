@@ -2,9 +2,7 @@ import asyncio
 import json
 import logging
 import time
-from datetime import datetime
 from time import monotonic
-from zoneinfo import ZoneInfo
 
 from app.db import Database, InboundEvent, Note
 from app.embedding import EmbeddingEncoder
@@ -33,7 +31,6 @@ class EventWorker:
         database: Database,
         whatsapp_client: WhatsAppClient,
         embedding_encoder: EmbeddingEncoder,
-        user_timezone: str,
         link_enricher: LinkEnricher | None = None,
         poll_interval_seconds: float = 0.25,
         stale_after_seconds: int = 300,
@@ -43,7 +40,6 @@ class EventWorker:
         self._embedding_encoder = embedding_encoder
         self._search = SearchService(database, embedding_encoder)
         self._link_enricher = link_enricher or SecureLinkEnricher()
-        self._user_timezone = ZoneInfo(user_timezone)
         self._poll_interval_seconds = poll_interval_seconds
         self._stale_after_seconds = stale_after_seconds
         self._stop_event = asyncio.Event()
@@ -80,19 +76,28 @@ class EventWorker:
 
         started_at = monotonic()
         try:
-            if event.reply_body is None:
+            if event.reply_body is None and event.reply_reaction_emoji is None:
                 await self._prepare_operation(event)
             stored_event = await asyncio.to_thread(
                 self._database.get_inbound_event,
                 event.wamid,
             )
-            if stored_event is None or stored_event["reply_body"] is None:
+            if stored_event is None:
                 raise RuntimeError("Worker operation did not prepare a reply")
-            await self._whatsapp_client.send_text(
-                event.sender_wa_id,
-                stored_event["reply_body"],
-                context_message_id=stored_event["reply_context_wamid"],
-            )
+            if stored_event["reply_body"] is not None:
+                await self._whatsapp_client.send_text(
+                    event.sender_wa_id,
+                    stored_event["reply_body"],
+                    context_message_id=stored_event["reply_context_wamid"],
+                )
+            elif stored_event["reply_reaction_emoji"] is not None:
+                await self._whatsapp_client.send_reaction(
+                    event.sender_wa_id,
+                    event.wamid,
+                    stored_event["reply_reaction_emoji"],
+                )
+            else:
+                raise RuntimeError("Worker operation did not prepare a reply")
             await asyncio.to_thread(self._database.complete_event, event.wamid)
             logger.info(
                 "event=worker_complete wamid=%s state=completed elapsed_ms=%d",
@@ -239,12 +244,7 @@ class EventWorker:
             reply_body = "You have no saved notes yet."
             context_wamid = None
         else:
-            saved_at = datetime.fromtimestamp(
-                match.whatsapp_timestamp,
-                tz=self._user_timezone,
-            )
-            saved_date = f"{saved_at.day} {saved_at.strftime('%B %Y')}"
-            reply_body = f"Best match · saved {saved_date}"
+            reply_body = "Best match."
             context_wamid = match.wamid
         await asyncio.to_thread(
             self._database.prepare_reply,

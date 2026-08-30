@@ -35,7 +35,6 @@ def create_app(
             database=database,
             whatsapp_client=resolved_whatsapp_client,
             embedding_encoder=resolved_embedding_encoder,
-            user_timezone=resolved_settings.user_timezone,
             poll_interval_seconds=resolved_settings.worker_poll_interval_seconds,
             stale_after_seconds=resolved_settings.worker_stale_after_seconds,
         )

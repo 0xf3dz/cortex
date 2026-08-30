@@ -1,5 +1,4 @@
 from pathlib import Path
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -21,7 +20,6 @@ class Settings(BaseSettings):
     database_path: Path
     webhook_max_body_bytes: int = Field(default=1_048_576, ge=1, le=10_485_760)
     embedding_model: str = Field(default="intfloat/multilingual-e5-small", min_length=1)
-    user_timezone: str = Field(default="Australia/Brisbane", min_length=1)
     worker_enabled: bool = True
     worker_poll_interval_seconds: float = Field(default=0.25, gt=0, le=60)
     worker_stale_after_seconds: int = Field(default=300, ge=10, le=86_400)
@@ -45,13 +43,4 @@ class Settings(BaseSettings):
     def validate_ascii_digits(cls, value: str) -> str:
         if not value.isascii() or not value.isdigit():
             raise ValueError("must contain only ASCII digits")
-        return value
-
-    @field_validator("user_timezone")
-    @classmethod
-    def validate_timezone(cls, value: str) -> str:
-        try:
-            ZoneInfo(value)
-        except ZoneInfoNotFoundError as error:
-            raise ValueError("must be a valid IANA time zone") from error
         return value

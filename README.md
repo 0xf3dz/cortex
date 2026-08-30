@@ -9,7 +9,7 @@ The service does not use a generative language model. It creates all search embe
 ## Features
 
 - Save text notes and links from WhatsApp.
-- Confirm each durable note with `Saved.`.
+- Confirm each durable note with a thumbs-up reaction.
 - Search notes with lexical and semantic retrieval.
 - Return the best original note as a quoted reply.
 - Preserve the original WhatsApp message ID and saved timestamp.
@@ -24,7 +24,7 @@ The service does not use a generative language model. It creates all search embe
 
 | Input | Result |
 |---|---|
-| Any text without a prefix | Save one note and reply with `Saved.` |
+| Any text without a prefix | Save one note and apply a thumbs-up reaction |
 | `? <natural-language query>` | Return the best saved note as a contextual reply |
 | `/help` | Show command help |
 | `/delete-last` | Delete the most recent saved note |
@@ -42,7 +42,7 @@ The service uses two search paths:
 4. Reciprocal Rank Fusion combines the lexical and vector ranks.
 5. The service returns one best note.
 
-The reply body contains the exact saved date. Its WhatsApp context contains the source note message ID.
+The reply body contains `Best match.`. Its WhatsApp context contains the source note message ID.
 
 ## Link behavior
 
@@ -160,7 +160,6 @@ Set these values in `.env`:
 | `DATABASE_PATH` | Yes | SQLite file path; use `/data/agent.sqlite3` in Docker |
 | `BACKUP_PATH` | No | Backup destination; default is `/data/backups/agent-latest.sqlite3` |
 | `EMBEDDING_MODEL` | No | Local model; default is `intfloat/multilingual-e5-small` |
-| `USER_TIME_ZONE` | No | IANA time zone for saved dates; default is `Australia/Brisbane` |
 | `WEBHOOK_MAX_BODY_BYTES` | No | Maximum webhook body size; default is 1 MiB |
 | `WORKER_ENABLED` | No | Enable the durable worker; default is `true` |
 | `WORKER_POLL_INTERVAL_SECONDS` | No | Queue poll interval; default is `0.25` |
@@ -320,7 +319,7 @@ The service still makes required network calls to Meta. It also requests public 
 - The prototype serves one allowlisted WhatsApp user.
 - It accepts future text messages only.
 - It does not import WhatsApp history.
-- It does not process images, audio, video, documents, reactions, or locations.
+- It does not process inbound images, audio, video, documents, reactions, or locations.
 - It returns one original note instead of a generated answer.
 - Source-message navigation depends on WhatsApp client behavior.
 - Link enrichment reads HTML metadata only. It does not crawl articles or run JavaScript.
