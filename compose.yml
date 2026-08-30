@@ -1,0 +1,32 @@
+name: whatsapp-search
+
+services:
+  app:
+    build: .
+    env_file:
+      - .env
+    environment:
+      DATABASE_PATH: /data/agent.sqlite3
+      HF_HOME: /models/huggingface
+      HF_HUB_OFFLINE: "1"
+      TRANSFORMERS_OFFLINE: "1"
+    ports:
+      - "127.0.0.1:8090:8000"
+    volumes:
+      - whatsapp_data:/data
+      - model_cache:/models
+    restart: unless-stopped
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2)"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5m
+
+volumes:
+  whatsapp_data:
+  model_cache:
