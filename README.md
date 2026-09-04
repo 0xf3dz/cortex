@@ -1,10 +1,12 @@
-# WhatsApp semantic memory
+I have this weird habit of texting myself on Whatsapp to save any type of notes. I use my own chat to also transfer clipboard items from mobile to laptop and viceversa. It feels kinda natural to save a note by writing it to myself and I want to avoid having, yet again, another note-taking app taking real estate on my homescreen. But the problem is losing the location of the notes as I keep sending more and I have to scroll up. The other problem is that the search bar on Whatsapp only does a lexical match, without semantics. So I thought what the hell, let's spin up a RAG and see where this goes!
+
+# Introduction
 
 A private WhatsApp service that saves future text notes and public links for one allowlisted user.
 
 Send a natural-language query later. The service returns one original note as a contextual WhatsApp reply.
 
-The service does not use a generative language model. It creates all search embeddings on the virtual private server (VPS).
+The service does not use a generative language model. It creates all search embeddings on the VPS.
 
 ## Features
 
